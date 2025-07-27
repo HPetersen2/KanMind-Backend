@@ -1,8 +1,8 @@
 from django.db.models import Q
-from rest_framework import generics, mixins
+from rest_framework import generics
 from rest_framework import permissions
-from .models import Task, Board
-from .serializers import TaskSerializer, BoardSerializer
+from .models import Task, Comment, Board
+from .serializers import TaskSerializer, CommentSerializer, BoardSerializer
 from .permissions import IsOwnerOrMember
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -12,6 +12,14 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+
+class CommentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 class BoardListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = BoardSerializer

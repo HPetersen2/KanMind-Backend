@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -8,7 +9,12 @@ class Task(models.Model):
     description = models.CharField(max_length=255)
     status = models.CharField(max_length=255)
     priority = models.CharField(max_length=255)
+    due_date = models.DateField(null=False, default=datetime.date.today)
 
+class Comment(models.Model):
+    created_at = models.DateTimeField(null=False, auto_now_add=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.CharField(max_length=255)
 
 class Board(models.Model):
     title = models.CharField(max_length=255)
