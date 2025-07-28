@@ -2,6 +2,10 @@ from rest_framework import serializers
 from .models import Task, Comment, Board
 
 class TaskSerializer(serializers.ModelSerializer):
+    owner = serializers.HyperlinkedRelatedField(
+        view_name='user-detail',
+        read_only=True
+    )
     class Meta:
         model = Task
         fields = '__all__'

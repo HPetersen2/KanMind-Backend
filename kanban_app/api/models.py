@@ -10,6 +10,7 @@ class Task(models.Model):
     status = models.CharField(max_length=255)
     priority = models.CharField(max_length=255)
     due_date = models.DateField(null=False, default=datetime.date.today)
+    owner = models.ForeignKey(User, related_name='tasks', on_delete=models.CASCADE)
 
 class Comment(models.Model):
     created_at = models.DateTimeField(null=False, auto_now_add=True)
