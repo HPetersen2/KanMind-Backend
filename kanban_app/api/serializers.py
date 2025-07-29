@@ -1,14 +1,23 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import Task, Comment, Board
 
+User = get_user_model()
+
+class UserShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email']
+
 class TaskSerializer(serializers.ModelSerializer):
-    owner = serializers.HyperlinkedRelatedField(
-        view_name='user-detail',
-        read_only=True
-    )
+    assignee = UserShortSerializer(read_only=True)
     class Meta:
         model = Task
-        fields = '__all__'
+        fields = [
+            'id', 'board', 'title', 'description',
+            'status', 'priority', 'due_date', 'assignee'
+        ]
+        read_only_fields = ['assignee']
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
