@@ -2,8 +2,9 @@ from django.db.models import Q
 from rest_framework import generics
 from rest_framework import permissions
 from .models import Task, Comment, Board
-from .serializers import TaskSerializer, CommentSerializer, BoardSerializer
+from .serializers import TaskSerializer, UserShortSerializer, CommentSerializer, BoardSerializer
 from .permissions import IsOwnerOrMember
+
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
     queryset = Task.objects.all()
@@ -16,6 +17,7 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
 
 class CommentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
@@ -31,3 +33,11 @@ class BoardListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         return Board.objects.filter(Q(owner=user) | Q(members=user)).distinct()
+    
+class EmailCheckViewAPIView(generics.ListAPIView):
+    serializer_class = UserShortSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+
