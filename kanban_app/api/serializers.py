@@ -28,8 +28,25 @@ class CommentSerializer(serializers.ModelSerializer):
         validated_data['author'] = self.context['request'].user
         return super().create(validated_data)
     
-class BoardSerializer(serializers.ModelSerializer):
+
+class BoardCreateSerializer(serializers.ModelSerializer):
+    members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all())
+
     class Meta:
         model = Board
-        fields = '__all__'
+        fields = ['id', 'title', 'members']
+
+
+class BoardListSerializer(serializers.ModelSerializer):
+    member_count = serializers.IntegerField(read_only=True)
+    ticket_count = serializers.IntegerField(read_only=True)
+    tasks_to_do_count = serializers.IntegerField(read_only=True)
+    tasks_high_prio_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Board
+        fields = [
+            'id', 'title', 'member_count', 'ticket_count',
+            'tasks_to_do_count', 'tasks_high_prio_count', 'owner_id'
+        ]
         

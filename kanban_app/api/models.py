@@ -3,12 +3,30 @@ from django.db import models
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+class Board(models.Model):
+    title = models.CharField(max_length=255)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_boards')
+    members = models.ManyToManyField(User, related_name='member_boards')
+    
 class Task(models.Model):
-    board = models.IntegerField()
+    STATUS_CHOICES = [
+        ('todo', 'To Do'),
+        ('in_progress', 'In Progress'),
+        ('done', 'Done'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+    ]
+
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=255)
-    status = models.CharField(max_length=255)
-    priority = models.CharField(max_length=255)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES)
     due_date = models.DateField(null=False, default=datetime.date.today)
     assignee = models.ForeignKey(User, related_name='tasks', on_delete=models.CASCADE)
 
@@ -17,14 +35,3 @@ class Comment(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.CharField(max_length=255)
 
-class Board(models.Model):
-    title = models.CharField(max_length=255)
-    member_count = models.IntegerField(default=0)
-    ticket_count = models.IntegerField(default=0)
-    tasks_to_do_count = models.IntegerField(default=0)
-    tasks_high_prio_count = models.IntegerField(default=0)
-    owner_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_boards')
-    members = models.ManyToManyField(User, related_name='member_boards')
-
-    def __str__(self):
-        return self.title
