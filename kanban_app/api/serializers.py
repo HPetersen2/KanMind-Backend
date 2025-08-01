@@ -5,17 +5,23 @@ from .models import Task, Comment, Board
 User = get_user_model()
 
 class UserShortSerializer(serializers.ModelSerializer):
+    fullname = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'email']
+        fields = ['id', 'email', 'fullname']
+
+    def get_fullname(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 class TaskSerializer(serializers.ModelSerializer):
     assignee = UserShortSerializer(read_only=True)
+    reviewer = UserShortSerializer(many=True, read_only=True)
     class Meta:
         model = Task
         fields = [
             'id', 'board', 'title', 'description',
-            'status', 'priority', 'due_date', 'assignee'
+            'status', 'priority', 'due_date', 'assignee', 'reviewer'
         ]
         read_only_fields = ['assignee']
 
@@ -49,4 +55,17 @@ class BoardListSerializer(serializers.ModelSerializer):
             'id', 'title', 'member_count', 'ticket_count',
             'tasks_to_do_count', 'tasks_high_prio_count', 'owner_id'
         ]
+
+class TaskShortBoardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ['id', 'title', 'description', 'status', 'priority', 'assignee', 'due_date', 'reviewer']
+        
+
+class BoardSingleSerializer(serializers.ModelSerializer):
+    members = UserShortSerializer(many=True, read_only=True)
+    tasks = TaskShortBoardSerializer(many=True, read_only=True)
+    class Meta:
+        model = Board
+        fields = ['id', 'title', 'owner_id', 'members', 'tasks']
         

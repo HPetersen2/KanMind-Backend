@@ -40,7 +40,8 @@ def create_tasks(boards, users):
                 status=random.choice(statuses),
                 priority=random.choice(priorities),
                 due_date=datetime.date.today() + datetime.timedelta(days=random.randint(1, 30)),
-                assignee=random.choice(users)
+                assignee=random.choice(users),
+                reviewer=random.choice(User)
             )
 
 def create_comments(users):

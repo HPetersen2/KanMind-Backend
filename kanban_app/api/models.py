@@ -28,11 +28,12 @@ class Task(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES)
     due_date = models.DateField(null=False, default=datetime.date.today)
-    assignee = models.ForeignKey(User, related_name='tasks', on_delete=models.CASCADE)
+    assignee = models.ForeignKey(User, related_name='assigned_tasks', on_delete=models.CASCADE)
+    reviewer = models.ManyToManyField(User, related_name='reviewed_tasks')
 
 class Comment(models.Model):
     created_at = models.DateTimeField(null=False, auto_now_add=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.CharField(max_length=255)
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')  # <--- hinzufügen
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
 
