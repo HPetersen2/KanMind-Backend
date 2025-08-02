@@ -5,22 +5,27 @@ from rest_framework import status
 from rest_framework.response import Response
 from .models import Task, Comment, Board
 from .serializers import TaskSerializer, UserShortSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer
-from .permissions import IsOwnerOrMember
+from .permissions import IsOwnerOrMember, IsOwner
 
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Task.objects.annotate(comments_count=Count('comments'))
 
     def perform_create(self, serializer):
         serializer.save(assignee=self.request.user)
 
+
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
 
+    def get_queryset(self):
+        return Task.objects.annotate(comments_count=Count('comments'))
+    
 class CommentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -72,7 +77,13 @@ class BoardListCreateView(generics.ListCreateAPIView):
 class BoardSingleView(generics.RetrieveDestroyAPIView):
     queryset = Board.objects.filter()
     serializer_class = BoardSingleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            permission_classes = [permissions.IsAuthenticated, IsOwner]
+        else:
+            permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+        return [permission() for permission in permission_classes]
+
 
 class EmailCheckViewAPIView(generics.ListAPIView):
     serializer_class = UserShortSerializer

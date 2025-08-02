@@ -8,6 +8,9 @@ class Board(models.Model):
     title = models.CharField(max_length=255)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_boards')
     members = models.ManyToManyField(User, related_name='member_boards')
+
+    def __str__(self):
+        return self.title
     
 class Task(models.Model):
     STATUS_CHOICES = [
@@ -31,9 +34,15 @@ class Task(models.Model):
     assignee = models.ForeignKey(User, related_name='assigned_tasks', on_delete=models.CASCADE)
     reviewer = models.ManyToManyField(User, related_name='reviewed_tasks')
 
+    def __str__(self):
+        return self.title
+
 class Comment(models.Model):
     created_at = models.DateTimeField(null=False, auto_now_add=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.CharField(max_length=255)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
+
+    def __str__(self):
+        return self.content
 
