@@ -14,9 +14,10 @@ class Board(models.Model):
     
 class Task(models.Model):
     STATUS_CHOICES = [
-        ('todo', 'To Do'),
-        ('in_progress', 'In Progress'),
-        ('done', 'Done'),
+        ('to-do', 'To Do'),
+        ('in-progress', 'In Progress'),
+        ('review', 'Review'),
+        ('done', 'Done')
     ]
 
     PRIORITY_CHOICES = [
@@ -32,7 +33,7 @@ class Task(models.Model):
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES)
     due_date = models.DateField(null=False, default=datetime.date.today)
     assignee = models.ForeignKey(User, related_name='assigned_tasks', on_delete=models.CASCADE)
-    reviewer = models.ManyToManyField(User, related_name='reviewed_tasks')
+    reviewer = models.ManyToManyField(User, related_name='reviewer', blank=True)
 
     def __str__(self):
         return self.title
