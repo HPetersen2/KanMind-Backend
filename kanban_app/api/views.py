@@ -1,38 +1,12 @@
 from django.db.models import Q, Count
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import permissions
 from rest_framework import status
 from rest_framework.response import Response
 from .models import Task, Comment, Board
-from .serializers import TaskSerializer, UserShortSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer
-from .permissions import IsOwnerOrMember, IsOwner
-
-
-class TaskListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Task.objects.annotate(comments_count=Count('comments'))
-
-    def perform_create(self, serializer):
-        serializer.save(assignee=self.request.user)
-
-
-class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
-
-    def get_queryset(self):
-        return Task.objects.annotate(comments_count=Count('comments'))
-    
-class CommentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, EmailCheckSerializer
+from .permissions import IsOwnerOrMember, IsOwner, IsTaskAssigneeOrReviewer
 
 class BoardListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -74,7 +48,7 @@ class BoardListCreateView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
 
-class BoardSingleView(generics.RetrieveDestroyAPIView):
+class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Board.objects.filter()
     serializer_class = BoardSingleSerializer
     def get_permissions(self):
@@ -86,9 +60,53 @@ class BoardSingleView(generics.RetrieveDestroyAPIView):
 
 
 class EmailCheckViewAPIView(generics.ListAPIView):
-    serializer_class = UserShortSerializer
+    serializer_class = EmailCheckSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class TaskListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Task.objects.annotate(comments_count=Count('comments'))
+
+    def perform_create(self, serializer):
+        serializer.save(assignee=self.request.user)
+
+
+class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTaskAssigneeOrReviewer]
+
+    def get_queryset(self):
+        return Task.objects.annotate(comments_count=Count('comments'))
     
+
+class TaskOwnView(generics.ListAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+
     def get_queryset(self):
         user = self.request.user
+        return Task.objects.filter(
+            Q(assignee=user) | Q(reviewer=user)
+        )
+
+class TaskReviewerView(generics.ListAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Task.objects.filter(Q(reviewer=user))
+
+class CommentListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        task_pk = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_pk)
+        serializer.save(author=self.request.user, task=task)
 
