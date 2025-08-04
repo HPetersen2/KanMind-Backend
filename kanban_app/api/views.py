@@ -4,9 +4,10 @@ from rest_framework import generics
 from rest_framework import permissions
 from rest_framework import status
 from rest_framework.response import Response
-from .models import Task, Comment, Board
-from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, EmailCheckSerializer
-from .permissions import IsOwnerOrMember, IsOwner, IsTaskAssigneeOrReviewer
+from rest_framework.exceptions import NotFound
+from .models import Task, Comment, Board, User
+from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, UserShortSerializer, EmailQuerySerializer
+from .permissions import IsOwnerOrMember, IsOwner, IsTaskAssigneeOrReviewer, IsBoardOwnerOrMember
 
 class BoardListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -23,7 +24,7 @@ class BoardListCreateView(generics.ListCreateAPIView):
         ).annotate(
             member_count=Count('members', distinct=True),
             ticket_count=Count('tasks', distinct=True),
-            tasks_to_do_count=Count('tasks', filter=Q(tasks__status='todo'), distinct=True),
+            tasks_to_do_count=Count('tasks', filter=Q(tasks__status='to-do'), distinct=True),
             tasks_high_prio_count=Count('tasks', filter=Q(tasks__priority='high'), distinct=True)
         )
 
@@ -51,6 +52,7 @@ class BoardListCreateView(generics.ListCreateAPIView):
 class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Board.objects.filter()
     serializer_class = BoardSingleSerializer
+    
     def get_permissions(self):
         if self.request.method == 'DELETE':
             permission_classes = [permissions.IsAuthenticated, IsOwner]
@@ -60,18 +62,30 @@ class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EmailCheckViewAPIView(generics.ListAPIView):
-    serializer_class = EmailCheckSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class TaskListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = TaskSerializer
+    serializer_class = UserShortSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Task.objects.annotate(comments_count=Count('comments'))
+        query_serializer = EmailQuerySerializer(data=self.request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        email = query_serializer.validated_data['email']
 
+        queryset = User.objects.filter(email__iexact=email)
+
+        if not queryset.exists():
+            raise NotFound(detail="Ein Benutzer mit dieser E-Mail existiert nicht.")
+
+        return queryset
+
+class TaskListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsBoardOwnerOrMember]
+
+    def get_queryset(self):
+        return Task.objects.annotate(comments_count=Count('comments'))
+    
     def perform_create(self, serializer):
-        serializer.save(assignee=self.request.user)
+        serializer.save()
 
 
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -82,19 +96,17 @@ class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         return Task.objects.annotate(comments_count=Count('comments'))
     
 
-class TaskOwnView(generics.ListAPIView):
+class TaskAssigneeView(generics.ListAPIView):
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        return Task.objects.filter(
-            Q(assignee=user) | Q(reviewer=user)
-        )
+        return Task.objects.filter(Q(assignee=user))
 
 class TaskReviewerView(generics.ListAPIView):
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
@@ -103,10 +115,18 @@ class TaskReviewerView(generics.ListAPIView):
 class CommentListCreateAPIView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
 
     def perform_create(self, serializer):
         task_pk = self.kwargs.get('task_pk')
         task = get_object_or_404(Task, pk=task_pk)
         serializer.save(author=self.request.user, task=task)
+
+class CommentDeleteAPIView(generics.DestroyAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        task_pk = self.kwargs['task_pk']
+        return Comment.objects.filter(task_id=task_pk)
 

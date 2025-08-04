@@ -1,5 +1,6 @@
 from rest_framework.permissions import BasePermission
 from rest_framework.permissions import IsAdminUser
+from .models import Board
 
 class IsOwnerOrMember(BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -12,3 +13,7 @@ class IsTaskAssigneeOrReviewer(BasePermission):
 class IsOwner(BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.user == obj.owner
+    
+class IsBoardOwnerOrMember(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return request.user == Board.objects.all().owner

@@ -38,34 +38,38 @@ class BoardListSerializer(serializers.ModelSerializer):
 class TaskShortBoardSerializer(serializers.ModelSerializer):
     reviewer = UserShortSerializer(many=True, read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Task
         fields = ['id', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'comments_count']
         
 
 class BoardSingleSerializer(serializers.ModelSerializer):
-    members_data = UserShortSerializer(source='members', many=True, read_only=True)
-
-    members = serializers.PrimaryKeyRelatedField(
+    members = UserShortSerializer(many=True, read_only=True)
+    member_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
-        write_only=True
+        write_only=True,
+        source='members'
     )
-
     tasks = TaskShortBoardSerializer(many=True, read_only=True)
-    owner_data = UserShortSerializer(source='owner_id', many=False, read_only=True)
 
     class Meta:
         model = Board
-        fields = ['id', 'title', 'owner_id', 'members', 'members_data', 'tasks']
+        fields = ['id', 'title', 'owner_id', 'member_ids', 'members', 'tasks']
 
-class EmailCheckSerializer(serializers.ModelSerializer):
-    class Meta:
-        Model = User
-        fields = '__all__'
+class EmailQuerySerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    
 
 class TaskSerializer(serializers.ModelSerializer):
-    assignee = UserShortSerializer(read_only=True)
+    assignee = UserShortSerializer(read_only=True)  # Für Response
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='assignee',
+        write_only=True,
+        required=False  # je nach Usecase: ob Pflichtfeld oder optional
+    )
     reviewer = UserShortSerializer(many=True, read_only=True)
     reviewer_id = serializers.PrimaryKeyRelatedField(
         source='reviewer',
@@ -79,12 +83,13 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields = [
             'id', 'board', 'title', 'description',
-            'status', 'priority', 'assignee',
-            'reviewer',
-            'reviewer_id',
+            'status', 'priority',
+            'assignee', 'assignee_id',   # beide Felder: read_only und write_only
+            'reviewer', 'reviewer_id',
             'due_date', 'comments_count'
         ]
         read_only_fields = ['assignee']
+
 
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
