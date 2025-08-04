@@ -7,7 +7,7 @@ User = get_user_model()
 class Board(models.Model):
     title = models.CharField(max_length=255)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_boards')
-    members = models.ManyToManyField(User, related_name='member_boards')
+    members = models.ManyToManyField(User, related_name='members')
 
     def __str__(self):
         return self.title
