@@ -46,17 +46,36 @@ class TaskShortBoardSerializer(serializers.ModelSerializer):
 
 class BoardSingleSerializer(serializers.ModelSerializer):
     members = UserShortSerializer(many=True, read_only=True)
-    member_ids = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=User.objects.all(),
-        write_only=True,
-        source='members'
-    )
     tasks = TaskShortBoardSerializer(many=True, read_only=True)
 
     class Meta:
         model = Board
-        fields = ['id', 'title', 'owner_id', 'member_ids', 'members', 'tasks']
+        fields = ['id', 'title', 'owner_id', 'members', 'tasks']
+
+class BoardUpdateSerializer(serializers.ModelSerializer):
+    members = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all(),
+        write_only=True
+    )
+    members_data = UserShortSerializer(source='members', many=True, read_only=True)
+    owner_data = UserShortSerializer(source='owner', read_only=True)
+
+    class Meta:
+        model = Board
+        fields = ['id', 'title', 'members', 'owner_data', 'members_data']
+
+    def update(self, instance, validated_data):
+        members = validated_data.pop('members', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if members is not None:
+            instance.members.set(members)
+
+        return instance
 
 class EmailQuerySerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
@@ -68,7 +87,7 @@ class TaskSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         source='assignee',
         write_only=True,
-        required=False  # je nach Usecase: ob Pflichtfeld oder optional
+        required=False
     )
     reviewer = UserShortSerializer(many=True, read_only=True)
     reviewer_id = serializers.PrimaryKeyRelatedField(
@@ -84,7 +103,7 @@ class TaskSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'board', 'title', 'description',
             'status', 'priority',
-            'assignee', 'assignee_id',   # beide Felder: read_only und write_only
+            'assignee', 'assignee_id',
             'reviewer', 'reviewer_id',
             'due_date', 'comments_count'
         ]
