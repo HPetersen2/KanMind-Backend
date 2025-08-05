@@ -34,8 +34,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Extract email and password from the validated data,
-        # and remove repeated_password as it is no longer needed.
+        """Extract email and password from the validated data,
+        and remove repeated_password as it is no longer needed."""
         email = validated_data.pop('email')
         password = validated_data.pop('password')
         validated_data.pop('repeated_password')
