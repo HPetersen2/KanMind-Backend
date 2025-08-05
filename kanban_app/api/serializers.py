@@ -5,16 +5,17 @@ from .models import Task, Comment, Board
 User = get_user_model()
 
 class UserShortSerializer(serializers.ModelSerializer):
-    # Serializer for a concise representation of a User,
-    # including a computed full name field.
+    """Serializer for a concise representation of a User,
+    including a computed full name field."""
     fullname = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'fullname']
-    
     def get_fullname(self, obj):
-        return obj.userprofile.fullname
+        if hasattr(obj, 'userprofile') and obj.userprofile:
+            return obj.userprofile.fullname
+        return ''
         
 
 class BoardCreateSerializer(serializers.ModelSerializer):
@@ -40,8 +41,8 @@ class BoardListSerializer(serializers.ModelSerializer):
         ]
 
 class TaskShortBoardSerializer(serializers.ModelSerializer):
-    # Short serializer for Task embedded within Board representations,
-    # includes reviewer details and comment count.
+    """Short serializer for Task embedded within Board representations,
+    includes reviewer details and comment count."""
     reviewer = UserShortSerializer(many=True, read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
 
@@ -63,8 +64,8 @@ class BoardSingleSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'owner_id', 'members', 'tasks']
 
 class BoardUpdateSerializer(serializers.ModelSerializer):
-    # Serializer for updating Board, accepts member IDs as input,
-    # returns full member and owner info as read-only nested data.
+    """Serializer for updating Board, accepts member IDs as input,
+    returns full member and owner info as read-only nested data."""
     members = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
@@ -97,8 +98,8 @@ class EmailQuerySerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
 class TaskSerializer(serializers.ModelSerializer):
-    # Serializer for Task with nested short user representations and
-    # separate write-only fields for setting assignee and reviewers by ID.
+    """Serializer for Task with nested short user representations and
+    separate write-only fields for setting assignee and reviewers by ID."""
     assignee = UserShortSerializer(read_only=True)  # Read-only for responses.
     assignee_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),

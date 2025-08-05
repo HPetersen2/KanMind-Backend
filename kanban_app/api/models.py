@@ -44,9 +44,9 @@ class Task(models.Model):
         ('high', 'High'),
     ]
 
-    # The board to which this task belongs.
-    # If the board is deleted, its tasks are deleted as well.
-    # The related_name 'tasks' allows reverse lookup: board.tasks.
+    """The board to which this task belongs.
+    If the board is deleted, its tasks are deleted as well.
+    The related_name 'tasks' allows reverse lookup: board.tasks."""
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='tasks')
 
     # Title of the task, limited to 255 characters.
