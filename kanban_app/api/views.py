@@ -1,13 +1,14 @@
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import permissions
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework import filters
 from .models import Task, Comment, Board, User
-from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, UserShortSerializer, EmailQuerySerializer
-from .permissions import IsOwnerOrMember, IsOwner, IsTaskAssigneeOrReviewer, IsBoardOwnerOrMember
+from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, BoardUpdateSerializer, UserShortSerializer, EmailQuerySerializer
+from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsTaskAssigneeOrReviewerOrBoardOwnerForDelete, IsCommentCreator
 
 class BoardListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -50,15 +51,30 @@ class BoardListCreateView(generics.ListCreateAPIView):
     
 
 class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Board.objects.filter()
-    serializer_class = BoardSingleSerializer
-    
+    queryset = Board.objects.all()
+
+    def get_queryset(self):
+        return Board.objects.prefetch_related(
+            Prefetch(
+                'tasks',
+                queryset=Task.objects.annotate(
+                    comments_count=Count('comments')
+                ).prefetch_related('reviewer', 'assignee')
+            ),
+            'members'
+        ).select_related('owner')
+
     def get_permissions(self):
         if self.request.method == 'DELETE':
             permission_classes = [permissions.IsAuthenticated, IsOwner]
         else:
             permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
         return [permission() for permission in permission_classes]
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return BoardUpdateSerializer
+        return BoardSingleSerializer
 
 
 class EmailCheckViewAPIView(generics.ListAPIView):
@@ -79,7 +95,7 @@ class EmailCheckViewAPIView(generics.ListAPIView):
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsBoardOwnerOrMember]
+    permission_classes = [permissions.IsAuthenticated, IsBoardMember]
 
     def get_queryset(self):
         return Task.objects.annotate(comments_count=Count('comments'))
@@ -87,13 +103,39 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save()
 
-
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTaskAssigneeOrReviewer]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        IsTaskAssigneeOrReviewerOrBoardOwnerForDelete
+    ]
 
     def get_queryset(self):
         return Task.objects.annotate(comments_count=Count('comments'))
+
+    def perform_update(self, serializer):
+        task = self.get_object()
+        board = task.board
+        validated_data = serializer.validated_data
+
+        assignee = validated_data.get('assignee')
+        if assignee:
+            if assignee != board.owner and not board.members.filter(pk=assignee.pk).exists():
+                raise ValidationError({'assignee': 'Assignee muss Mitglied des Boards sein.'})
+
+        reviewers = validated_data.get('reviewer')
+        if reviewers:
+            invalid_users = []
+            for reviewer in reviewers:
+                if reviewer != board.owner and not board.members.filter(pk=reviewer.pk).exists():
+                    invalid_users.append(reviewer.pk)
+
+            if invalid_users:
+                raise ValidationError({
+                    'reviewer': f'Folgende Reviewer sind keine Mitglieder des Boards: {invalid_users}'
+                })
+
+        serializer.save()
     
 
 class TaskAssigneeView(generics.ListAPIView):
@@ -113,9 +155,15 @@ class TaskReviewerView(generics.ListAPIView):
         return Task.objects.filter(Q(reviewer=user))
 
 class CommentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        task_pk = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_pk)
+        return Comment.objects.filter(task=task)
 
     def perform_create(self, serializer):
         task_pk = self.kwargs.get('task_pk')
@@ -124,7 +172,7 @@ class CommentListCreateAPIView(generics.ListCreateAPIView):
 
 class CommentDeleteAPIView(generics.DestroyAPIView):
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsCommentCreator]
 
     def get_queryset(self):
         task_pk = self.kwargs['task_pk']
