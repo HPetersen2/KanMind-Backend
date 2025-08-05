@@ -1,6 +1,5 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
-from rest_framework.permissions import IsAdminUser
-from .models import Board, Task
+from .models import Board
 
 class IsOwnerOrMember(BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -13,10 +12,6 @@ class IsTaskAssigneeOrReviewer(BasePermission):
 class IsOwner(BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.user == obj.owner
-    
-class IsBoardOwnerOrMember(BasePermission):
-    def has_object_permission(self, request, view, obj):
-        return request.user == Board.objects.all().owner
     
 class IsBoardMember(BasePermission):
     """
@@ -33,8 +28,6 @@ class IsBoardMember(BasePermission):
 
         return request.user == board.owner or request.user in board.members.all()
 
-
-# 2. Nur Task-Ersteller ODER Board-Ersteller darf Task löschen
 class IsTaskAssigneeOrReviewerOrBoardOwnerForDelete(BasePermission):
     """
     Kombinierte Permission:
@@ -53,8 +46,6 @@ class IsTaskAssigneeOrReviewerOrBoardOwnerForDelete(BasePermission):
 
         return False
 
-
-# 3. Nur Board-Ersteller darf Board löschen
 class IsBoardOwner(BasePermission):
     """
     Nur Board-Owner darf ein Board löschen.

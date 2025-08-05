@@ -1,5 +1,15 @@
 from django.urls import path
-from .views import TaskListCreateAPIView, TaskUpdateDestroyAPIView, CommentListCreateAPIView,  BoardListCreateView, BoardSingleView, EmailCheckViewAPIView, TaskAssigneeView, TaskReviewerView, CommentDeleteAPIView
+from .views import (
+    TaskListCreateAPIView,
+    TaskUpdateDestroyAPIView,
+    CommentListCreateAPIView,
+    BoardListCreateView,
+    BoardSingleView,
+    EmailCheckViewAPIView,
+    TaskAssigneeView,
+    TaskReviewerView,
+    CommentDeleteAPIView,
+)
 
 urlpatterns = [
     path('boards/', BoardListCreateView.as_view(), name='boards'),

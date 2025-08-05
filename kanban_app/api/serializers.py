@@ -41,7 +41,11 @@ class TaskShortBoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date', 'comments_count']
+        fields = [
+            'id', 'title', 'description', 
+            'status', 'priority', 'assignee',
+            'reviewer', 'due_date', 'comments_count'
+            ]
         
 
 class BoardSingleSerializer(serializers.ModelSerializer):
@@ -112,6 +116,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
+    
     class Meta:
         model = Comment
         fields = ['id', 'created_at', 'author', 'content']

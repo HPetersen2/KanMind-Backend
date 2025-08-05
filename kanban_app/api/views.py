@@ -1,13 +1,19 @@
 from django.db.models import Q, Count, Prefetch
 from django.shortcuts import get_object_or_404
-from rest_framework import generics
-from rest_framework import permissions
-from rest_framework import status
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, ValidationError
-from rest_framework import filters
 from .models import Task, Comment, Board, User
-from .serializers import TaskSerializer, CommentSerializer, BoardListSerializer, BoardCreateSerializer, BoardSingleSerializer, BoardUpdateSerializer, UserShortSerializer, EmailQuerySerializer
+from .serializers import (
+    TaskSerializer,
+    CommentSerializer,
+    BoardListSerializer,
+    BoardCreateSerializer,
+    BoardSingleSerializer,
+    BoardUpdateSerializer,
+    UserShortSerializer,
+    EmailQuerySerializer,
+)
 from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsTaskAssigneeOrReviewerOrBoardOwnerForDelete, IsCommentCreator
 
 class BoardListCreateView(generics.ListCreateAPIView):
