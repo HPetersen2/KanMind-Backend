@@ -18,22 +18,43 @@ KanMind Backend is the server-side application for a task management app where u
 
 ## Installation
 
-1. Clone the repository:
-   git clone <repository-url>
-   cd <repository-folder>
+### 1. Repository klonen
+
+```bash
+git clone <repository-url>
+cd <repository-folder>
+```
 
 2. Create a virtual environment:
+   # Virtuelle Umgebung erstellen
+   ```bash
    python -m venv venv
-   source venv/bin/activate   # On Windows use venv\Scripts\activate
+   ```
+   
+   # Aktivieren unter macOS/Linux:
+   ```bash
+   source venv/bin/activate
+   ```
+   
+   # Aktivieren unter Windows:
+   ```bash
+   venv\Scripts\activate
+   ```
 
-3. Install dependencies:
+4. Install dependencies:
+   ```bash
    pip install -r requirements.txt
+   ```
 
-4. Run the development server:
+6. Run the development server:
+   ```bash
    python manage.py runserver
+   ```
 
-5. (Optional) Populate test data:
+8. (Optional) Populate test data:
+   ```bash
    python manage.py shell < populate_test_data.py
+   ```
 
 ## Database
 
