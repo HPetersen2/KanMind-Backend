@@ -19,7 +19,7 @@ class UserShortSerializer(serializers.ModelSerializer):
         
 
 class BoardCreateSerializer(serializers.ModelSerializer):
-    # Serializer for creating a Board, accepting member IDs.
+    """Serializer for creating a Board, accepting member IDs."""
     members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all())
 
     class Meta:
@@ -27,7 +27,7 @@ class BoardCreateSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'members']
 
 class BoardListSerializer(serializers.ModelSerializer):
-    # Serializer for listing Board objects with additional counts.
+    """Serializer for listing Board objects with additional counts."""
     member_count = serializers.IntegerField(read_only=True)
     ticket_count = serializers.IntegerField(read_only=True)
     tasks_to_do_count = serializers.IntegerField(read_only=True)
@@ -55,7 +55,7 @@ class TaskShortBoardSerializer(serializers.ModelSerializer):
         ]
 
 class BoardSingleSerializer(serializers.ModelSerializer):
-    # Detailed Board serializer including members and tasks with nested serializers.
+    """Detailed Board serializer including members and tasks with nested serializers."""
     members = UserShortSerializer(many=True, read_only=True)
     tasks = TaskShortBoardSerializer(many=True, read_only=True)
 
@@ -79,26 +79,38 @@ class BoardUpdateSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'members', 'owner_data', 'members_data']
 
     def update(self, instance, validated_data):
-        # Custom update method to handle members field separately.
+        """Custom update method to handle members field separately."""
         members = validated_data.pop('members', None)
 
-        # Update other fields on the instance.
+        """Update other fields on the instance."""
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # If members were provided, update the many-to-many relationship.
+        """If members were provided, update the many-to-many relationship."""
         if members is not None:
             instance.members.set(members)
 
         return instance
 
 class EmailQuerySerializer(serializers.Serializer):
-    # Simple serializer to validate a single email field.
+    """Simple serializer to validate a single email field."""
     email = serializers.EmailField(required=True)
 
 class CommaSeparatedUserField(serializers.Field):
+    """
+    Custom field to handle user IDs as a single int, a comma-separated string,
+    or a list of ints. Converts them to User instances and validates existence.
+    """
+
     def to_internal_value(self, data):
+        """
+        Parse input into a list of User objects. Supports:
+        - int
+        - comma-separated string
+        - list of ints
+        Raises error if users don't exist.
+        """
         if isinstance(data, int):
             data = [data]
         elif isinstance(data, str):
@@ -106,14 +118,17 @@ class CommaSeparatedUserField(serializers.Field):
         elif isinstance(data, list):
             data = [int(pk) for pk in data]
         else:
-            raise serializers.ValidationError("Ungültiges Format für reviewer_id")
+            raise serializers.ValidationError("Invalid format for reviewer_id")
 
         users = User.objects.filter(pk__in=data)
         if users.count() != len(data):
-            raise serializers.ValidationError("Ein oder mehrere Benutzer existieren nicht.")
+            raise serializers.ValidationError("One or more users do not exist.")
         return list(users)
 
     def to_representation(self, value):
+        """
+        Return list of user IDs from User instances.
+        """
         return [user.pk for user in value]
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -141,7 +156,7 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
 
 class CommentSerializer(serializers.ModelSerializer):
-    # Serializer for Comment with author set to the authenticated user automatically.
+    """Serializer for Comment with author set to the authenticated user automatically."""
     author = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:

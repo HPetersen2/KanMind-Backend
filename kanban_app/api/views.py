@@ -25,14 +25,14 @@ class BoardListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
-        # Use different serializers for GET (listing) and POST (creation)
+        """Use different serializers for GET (listing) and POST (creation)"""
         if self.request.method == 'POST':
             return BoardCreateSerializer
         return BoardListSerializer
 
     def get_queryset(self):
         user = self.request.user
-        # Query Boards where user is owner or member and annotate with counts for dashboard stats
+        """Query Boards where user is owner or member and annotate with counts for dashboard stats"""
         return Board.objects.filter(
             Q(owner=user) | Q(members=user)
         ).annotate(
@@ -43,21 +43,21 @@ class BoardListCreateView(generics.ListCreateAPIView):
         )
 
     def perform_create(self, serializer):
-        # Save the new Board instance with the current user as owner
+        """Save the new Board instance with the current user as owner"""
         board = serializer.save(owner=self.request.user)
 
-        # Assign members if provided in request data
+        """Assign members if provided in request data"""
         members = self.request.data.get('members')
         if members:
             board.members.set(members)
 
-        # Manually annotate counts for the created board instance to provide detailed response
+        """Manually annotate counts for the created board instance to provide detailed response"""
         board.member_count = board.members.count()
         board.ticket_count = board.tasks.count()
         board.tasks_to_do_count = board.tasks.filter(status='to-do').count()
         board.tasks_high_prio_count = board.tasks.filter(priority='high').count()
 
-        # Store created board for use in response
+        """Store created board for use in response"""
         self._created_board = board
 
     def create(self, request, *args, **kwargs):
@@ -83,7 +83,7 @@ class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Board.objects.all()
 
     def get_queryset(self):
-        # Prefetch related tasks with comment counts and related user fields for efficiency
+        """Prefetch related tasks with comment counts and related user fields for efficiency"""
         return Board.objects.prefetch_related(
             Prefetch(
                 'tasks',
@@ -102,7 +102,7 @@ class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
         return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
-        # Use a specialized serializer for PATCH updates, else default detailed serializer
+        """Use a specialized serializer for PATCH updates, else default detailed serializer"""
         if self.request.method == 'PATCH':
             return BoardUpdateSerializer
         return BoardSingleSerializer
@@ -167,13 +167,13 @@ class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         board = task.board
         validated_data = serializer.validated_data
 
-        # Validate assignee is board owner or member
+        """Validate assignee is board owner or member"""
         assignee = validated_data.get('assignee')
         if assignee:
             if assignee != board.owner and not board.members.filter(pk=assignee.pk).exists():
                 raise ValidationError({'assignee': 'Assignee must be a member of the board.'})
 
-        # Validate all reviewers are board owner or members
+        """Validate all reviewers are board owner or members"""
         reviewers = validated_data.get('reviewer')
         if reviewers:
             invalid_users = []
