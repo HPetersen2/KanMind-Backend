@@ -97,10 +97,29 @@ class EmailQuerySerializer(serializers.Serializer):
     # Simple serializer to validate a single email field.
     email = serializers.EmailField(required=True)
 
+class CommaSeparatedUserField(serializers.Field):
+    def to_internal_value(self, data):
+        if isinstance(data, int):
+            data = [data]
+        elif isinstance(data, str):
+            data = [int(pk.strip()) for pk in data.split(',')]
+        elif isinstance(data, list):
+            data = [int(pk) for pk in data]
+        else:
+            raise serializers.ValidationError("Ungültiges Format für reviewer_id")
+
+        users = User.objects.filter(pk__in=data)
+        if users.count() != len(data):
+            raise serializers.ValidationError("Ein oder mehrere Benutzer existieren nicht.")
+        return list(users)
+
+    def to_representation(self, value):
+        return [user.pk for user in value]
+
 class TaskSerializer(serializers.ModelSerializer):
     """Serializer for Task with nested short user representations and
     separate write-only fields for setting assignee and reviewers by ID."""
-    assignee = UserShortSerializer(read_only=True)  # Read-only for responses.
+    assignee = UserShortSerializer(read_only=True)
     assignee_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source='assignee',
@@ -108,12 +127,7 @@ class TaskSerializer(serializers.ModelSerializer):
         required=False
     )
     reviewer = UserShortSerializer(many=True, read_only=True)
-    reviewer_id = serializers.PrimaryKeyRelatedField(
-        source='reviewer',
-        queryset=User.objects.all(),
-        many=True,
-        write_only=True
-    )
+    reviewer_id = CommaSeparatedUserField(source='reviewer', write_only=True)
     comments_count = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -125,7 +139,6 @@ class TaskSerializer(serializers.ModelSerializer):
             'reviewer', 'reviewer_id',
             'due_date', 'comments_count'
         ]
-        read_only_fields = ['assignee']
 
 class CommentSerializer(serializers.ModelSerializer):
     # Serializer for Comment with author set to the authenticated user automatically.
