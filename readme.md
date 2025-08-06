@@ -32,19 +32,29 @@ cd <repository-folder>
    ```
    
    # Aktivieren unter macOS/Linux:
+   ```bash
    source venv/bin/activate
+   ```
    
    # Aktivieren unter Windows:
+   ```bash
    venv\Scripts\activate
+   ```
 
 4. Install dependencies:
+   ```bash
    pip install -r requirements.txt
+   ```
 
-5. Run the development server:
+6. Run the development server:
+   ```bash
    python manage.py runserver
+   ```
 
-6. (Optional) Populate test data:
+8. (Optional) Populate test data:
+   ```bash
    python manage.py shell < populate_test_data.py
+   ```
 
 ## Database
 
