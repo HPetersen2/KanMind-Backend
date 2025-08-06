@@ -1,11 +1,13 @@
 from django.db.models import Q, Count, Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, ValidationError
 from .models import Task, Comment, Board, User
 from .serializers import (
     TaskSerializer,
+    TaskUpdateDestroySerializer,
     CommentSerializer,
     BoardListSerializer,
     BoardCreateSerializer,
@@ -14,7 +16,7 @@ from .serializers import (
     UserShortSerializer,
     EmailQuerySerializer,
 )
-from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsTaskAssigneeOrReviewerOrBoardOwnerForDelete, IsCommentCreator
+from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsCommentBoardMember, IsCommentCreator
 
 class BoardListCreateView(generics.ListCreateAPIView):
     """
@@ -108,27 +110,27 @@ class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
         return BoardSingleSerializer
 
 
-class EmailCheckViewAPIView(generics.ListAPIView):
+class EmailCheckAPIView(APIView):
     """
     API view to check for the existence of a user with a given email.
     Requires authenticated user.
     Query parameter: ?email=<email>
     Returns user data if found, otherwise raises a 404 NotFound.
     """
-    serializer_class = UserShortSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        query_serializer = EmailQuerySerializer(data=self.request.query_params)
+    def get(self, request, *args, **kwargs):
+        query_serializer = EmailQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
-        email = query_serializer.validated_data['email']
+        email = query_serializer.validated_data["email"]
 
-        queryset = User.objects.filter(email__iexact=email)
-
-        if not queryset.exists():
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
             raise NotFound(detail="A user with this email does not exist.")
 
-        return queryset
+        serializer = UserShortSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -137,26 +139,42 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
     Requires user to be authenticated and to be either the board owner or a member.
     Tasks are annotated with the number of related comments.
     """
+    http_method_names = ['post']
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated, IsBoardMember]
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
 
     def get_queryset(self):
         return Task.objects.annotate(comments_count=Count('comments'))
-    
-    def perform_create(self, serializer):
-        serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        # Standardmäßige Validierung & Speicherung
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save()
+
+        # Re-fetch mit Annotation
+        task = (
+            Task.objects.annotate(comments_count=Count('comments'))
+            .get(pk=task.pk)
+        )
+
+        # Response-Serialisierung
+        output_serializer = self.get_serializer(task)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     API view to retrieve, update, or delete a Task instance.
-    Permissions ensure only the assignee, reviewers, or board owner can perform these actions.
-    Validation checks ensure assignees and reviewers belong to the board's members or are the owner.
+    Permissions ensure only the assignee, reviewer, or board owner can perform these actions.
+    Validation checks ensure assignee and reviewer belong to the board's members or are the owner.
     """
-    serializer_class = TaskSerializer
+    http_method_names = ['patch', 'delete']
+    serializer_class = TaskUpdateDestroySerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        IsTaskAssigneeOrReviewerOrBoardOwnerForDelete
+        IsBoardMember
     ]
 
     def get_queryset(self):
@@ -167,27 +185,17 @@ class TaskUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         board = task.board
         validated_data = serializer.validated_data
 
-        """Validate assignee is board owner or member"""
         assignee = validated_data.get('assignee')
         if assignee:
             if assignee != board.owner and not board.members.filter(pk=assignee.pk).exists():
                 raise ValidationError({'assignee': 'Assignee must be a member of the board.'})
 
-        """Validate all reviewers are board owner or members"""
-        reviewers = validated_data.get('reviewer')
-        if reviewers:
-            invalid_users = []
-            for reviewer in reviewers:
-                if reviewer != board.owner and not board.members.filter(pk=reviewer.pk).exists():
-                    invalid_users.append(reviewer.pk)
-
-            if invalid_users:
-                raise ValidationError({
-                    'reviewer': f'The following reviewers are not members of the board: {invalid_users}'
-                })
+        reviewer = validated_data.get('reviewer')
+        if reviewer:
+            if reviewer != board.owner and not board.members.filter(pk=reviewer.pk).exists():
+                raise ValidationError({'reviewer': 'Reviewer must be a member of the board.'})
 
         serializer.save()
-
 
 class TaskAssigneeView(generics.ListAPIView):
     """
@@ -198,7 +206,11 @@ class TaskAssigneeView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Task.objects.filter(assignee=user)
+        return (
+            Task.objects
+            .filter(assignee=user)
+            .annotate(comments_count=Count('comments'))
+        )
 
 
 class TaskReviewerView(generics.ListAPIView):
@@ -210,7 +222,11 @@ class TaskReviewerView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Task.objects.filter(reviewer=user)
+        return (
+            Task.objects
+            .filter(reviewer=user)
+            .annotate(comments_count=Count('comments'))
+        )
 
 
 class CommentListCreateAPIView(generics.ListCreateAPIView):
@@ -220,7 +236,7 @@ class CommentListCreateAPIView(generics.ListCreateAPIView):
     Comments are ordered by creation date descending.
     """
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+    permission_classes = [permissions.IsAuthenticated, IsCommentBoardMember]
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 

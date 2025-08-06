@@ -5,7 +5,7 @@ from .views import (
     CommentListCreateAPIView,
     BoardListCreateView,
     BoardSingleView,
-    EmailCheckViewAPIView,
+    EmailCheckAPIView,
     TaskAssigneeView,
     TaskReviewerView,
     CommentDeleteAPIView,
@@ -19,7 +19,7 @@ urlpatterns = [
     path('boards/<int:pk>/', BoardSingleView.as_view(), name='board-details'),
 
     # Endpoint to check if an email exists or is valid (usually for user validation)
-    path('email-check/', EmailCheckViewAPIView.as_view(), name='email-check'),
+    path('email-check/', EmailCheckAPIView.as_view(), name='email-check'),
 
     # Endpoint for listing all tasks or creating a new task
     path('tasks/', TaskListCreateAPIView.as_view(), name='tasks'),

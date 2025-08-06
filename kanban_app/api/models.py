@@ -1,5 +1,6 @@
 import datetime
 from django.db import models
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 """Dynamically get the User model defined in the project settings."""
@@ -73,7 +74,7 @@ class Task(models.Model):
     """Users assigned as reviewers of the task."""
     """Many-to-many relationship, can be empty (blank=True)."""
     """The related_name 'reviewer' allows reverse lookup: user.reviewer."""
-    reviewer = models.ManyToManyField(User, related_name='reviewer', blank=True)
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_tasks")
 
     def __str__(self):
         """Returns the task title as the string representation."""

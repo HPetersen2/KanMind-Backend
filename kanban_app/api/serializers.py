@@ -141,8 +141,13 @@ class TaskSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    reviewer = UserShortSerializer(many=True, read_only=True)
-    reviewer_id = CommaSeparatedUserField(source='reviewer', write_only=True)
+    reviewer = UserShortSerializer(read_only=True)
+    reviewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='reviewer',
+        write_only=True,
+        required=False
+    )
     comments_count = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -151,17 +156,48 @@ class TaskSerializer(serializers.ModelSerializer):
             'id', 'board', 'title', 'description',
             'status', 'priority',
             'assignee', 'assignee_id',
-            'reviewer', 'reviewer_id',
+            'reviewer', 'reviewer_id',  # ← Singular
             'due_date', 'comments_count'
+        ]
+
+class TaskUpdateDestroySerializer(serializers.ModelSerializer):
+    """Serializer for Task with nested short user representations and
+    separate write-only fields for setting assignee and reviewers by ID."""
+    assignee = UserShortSerializer(read_only=True)
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='assignee',
+        write_only=True,
+        required=False
+    )
+    reviewer = UserShortSerializer(read_only=True)
+    reviewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='reviewer',
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = Task
+        fields = [
+            'id', 'board', 'title', 'description',
+            'status', 'priority',
+            'assignee', 'assignee_id',
+            'reviewer', 'reviewer_id',
+            'due_date'
         ]
 
 class CommentSerializer(serializers.ModelSerializer):
     """Serializer for Comment with author set to the authenticated user automatically."""
-    author = serializers.PrimaryKeyRelatedField(read_only=True)
+    author = serializers.SerializerMethodField()
     
     class Meta:
         model = Comment
         fields = ['id', 'created_at', 'author', 'content']
+
+    def get_author(self, obj):
+        return obj.author.get_full_name() if obj.author else None
 
     def create(self, validated_data):
         # Override to automatically set the author from the request user.
