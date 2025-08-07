@@ -71,30 +71,28 @@ class IsBoardOwner(BasePermission):
     
 class IsCommentBoardMember(BasePermission):
     """
-    Permission for comments: User must be owner or member of the board associated with the task.
+    Permission that allows only members of the task's board to access.
+    Assumes `view.task` is set.
     """
-    
-    def has_permission(self, request, view):
-        if request.method == 'POST':
-            task_id = view.kwargs.get('task_pk') or request.data.get('task')
-            if not task_id:
-                return False
-            try:
-                task = Task.objects.select_related('board').get(pk=task_id)
-            except Task.DoesNotExist:
-                return False
-            board = task.board
-            user = request.user
-            return user == board.owner or board.members.filter(pk=user.pk).exists()
-        return True
 
-    def has_object_permission(self, request, view, obj):
-        board = obj.task.board
-        user = request.user
-        return user == board.owner or board.members.filter(pk=user.pk).exists()
+    def has_permission(self, request, view):
+        task = getattr(view, 'task', None)
+        if not task:
+            return False
+
+        board = task.board
+
+        return (
+            request.user == board.owner
+            or board.members.filter(id=request.user.id).exists()
+        )
     
 class IsCommentCreator(BasePermission):
     """Permission to allow only the creator (author) of a comment to access it."""
     def has_object_permission(self, request, view, obj):
         """Return True if the user is the author of the comment."""
         return request.user == obj.author
+    
+class BoardMemberForBoard(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return request.user == obj.owner or request.user in obj.members.all()

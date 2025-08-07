@@ -191,15 +191,17 @@ class TaskUpdateDestroySerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     """Serializer for Comment with author set to the authenticated user automatically."""
     author = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Comment
         fields = ['id', 'created_at', 'author', 'content']
 
     def get_author(self, obj):
-        return obj.author.get_full_name() if obj.author else None
+        user = obj.author
+        if hasattr(user, 'userprofile') and user.userprofile.fullname:
+            return user.userprofile.fullname
+        return user.username
 
     def create(self, validated_data):
-        # Override to automatically set the author from the request user.
         validated_data['author'] = self.context['request'].user
         return super().create(validated_data)

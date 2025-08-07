@@ -16,7 +16,7 @@ from .serializers import (
     UserShortSerializer,
     EmailQuerySerializer,
 )
-from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsCommentBoardMember, IsCommentCreator
+from .permissions import IsOwnerOrMember, IsOwner, IsBoardMember, IsCommentBoardMember, IsCommentCreator, BoardMemberForBoard
 
 class BoardListCreateView(generics.ListCreateAPIView):
     """
@@ -100,7 +100,7 @@ class BoardSingleView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == 'DELETE':
             permission_classes = [permissions.IsAuthenticated, IsOwner]
         else:
-            permission_classes = [permissions.IsAuthenticated, IsOwnerOrMember]
+            permission_classes = [permissions.IsAuthenticated, BoardMemberForBoard]
         return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):
@@ -228,7 +228,6 @@ class TaskReviewerView(generics.ListAPIView):
             .annotate(comments_count=Count('comments'))
         )
 
-
 class CommentListCreateAPIView(generics.ListCreateAPIView):
     """
     API view to list all comments related to a specific task or create a new comment.
@@ -240,15 +239,26 @@ class CommentListCreateAPIView(generics.ListCreateAPIView):
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 
-    def get_queryset(self):
+    def initial(self, request, *args, **kwargs):
+        """
+        Override `initial()` to fetch the task and run permission checks early.
+        This ensures both 404 and 403 behave correctly and consistently for GET/POST.
+        """
+        self.task = self.get_task_or_404()
+        super().initial(request, *args, **kwargs)
+
+    def get_task_or_404(self):
         task_pk = self.kwargs.get('task_pk')
-        task = get_object_or_404(Task, pk=task_pk)
-        return Comment.objects.filter(task=task)
+        try:
+            return Task.objects.get(pk=task_pk)
+        except Task.DoesNotExist:
+            raise NotFound(detail="Task not found.")
+
+    def get_queryset(self):
+        return Comment.objects.filter(task=self.task)
 
     def perform_create(self, serializer):
-        task_pk = self.kwargs.get('task_pk')
-        task = get_object_or_404(Task, pk=task_pk)
-        serializer.save(author=self.request.user, task=task)
+        serializer.save(author=self.request.user, task=self.task)
 
 
 class CommentDeleteAPIView(generics.DestroyAPIView):
