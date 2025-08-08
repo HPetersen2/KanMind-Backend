@@ -43,7 +43,7 @@ class BoardListSerializer(serializers.ModelSerializer):
 class TaskShortBoardSerializer(serializers.ModelSerializer):
     """Short serializer for Task embedded within Board representations,
     includes reviewer details and comment count."""
-    reviewer = UserShortSerializer(many=True, read_only=True)
+    reviewer = UserShortSerializer(read_only=True)
     comments_count = serializers.IntegerField(read_only=True)
 
     class Meta:
